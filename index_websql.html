@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Demo WebSQL Lib</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="websql.js"></script>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-1">
+            </div>
+            <div class="col-md-10">
+                <button id='btnAdd' type="button" class="btn btn-primary">
+                    新增
+                </button>
+            <div class="col-md-1">
+            </div>
+        </div>
+    </div>
+    <span class="hidden">
+        <a id="modal-799945" href="#modal-container-799945" role="button" class="btn" data-toggle="modal">Launch demo modal</a>
+    </span>
+    <div class="modal fade" id="modal-container-799945" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                        ×
+                    </button>
+                    <h4 class="modal-title" id="myModalLabel">
+                    <span id="title">Modal title</span>
+                </h4>
+                </div>
+                <div class="modal-body">
+                    <form class="form-horizontal" role="form">
+                        <div class="form-group">
+                            <label for="txtItemName" class="col-sm-2 control-label">
+                                商品名稱
+                            </label>
+                            <div class="col-sm-10">
+                                <input class="form-control" id="txtItemName" type="text" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="txtItemPrice" class="col-sm-2 control-label">
+                                商品價格
+                            </label>
+                            <div class="col-sm-10">
+                                <input class="form-control" id="txtItemPrice" type="text" />
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="txtItemDescription" class="col-sm-2 control-label">
+                                商品描述</label>
+                            <div class="col-sm-10">
+                                <input class="form-control" id="txtItemDescription" type="text" />
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">
+                        關閉
+                    </button>
+                    <button id="btnSave" type="button" class="btn btn-primary" data-dismiss="modal">
+                        確定
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
+<script type="text/javascript">
+    var websql;
+    var action;
+    var objectParent;
+    $(document).ready(function(){
+        websql = getDatabase();
+        websql.init(function(result) { 
+            initUI();
+            loadData();
+        },function(error){
+            alert(error.errorMessage);
+            console.log(error);
+        });
+    });
+
+    function getDatabase() {
+        var database = "itemDatabase";
+        var table = "itemRows";
+        var fields = ["name", "price", "description"];
+        var fieldTypes = ["TEXT PRIMARY KEY", "TEXT", "TEXT"];
+        return WebSQL(database, table, fields, fieldTypes);
+    }
+
+    function initUI() {
+        $("#btnAdd").click(function(){
+            action = "add";
+            openAddPanel();
+        });
+
+        $("#btnSave").click(function(){
+            var itemName = $("#txtItemName").val();
+            var itemPrice = $("#txtItemPrice").val();
+            var itemDescription = $("#txtItemDescription").val();
+
+            if (action == "add") {
+                var values = [itemName, itemPrice, itemDescription];
+                websql.insert(values, function(){
+                    appendItemToUI(itemName, itemPrice, itemDescription);
+                    bindEditDeleteToItem();
+                });
+            }
+
+            if (action == "edit") {
+                var fields = ["name", "price", "description"];
+                var values = [itemName, itemPrice, itemDescription];
+                websql.update(fields, values, function(){
+                    updateItemOnUI(objectParent, itemName, itemPrice, itemDescription);
+                }); 
+            }
+        });
+    }
+
+    function loadData() {
+        websql.fetch(function(tx, rs){
+            for (var i = 0; i < rs.rows.length; i++) {
+                row = rs.rows.item(i);
+                appendItemToUI(row["name"],row["price"],row["description"])
+            }
+            bindEditDeleteToItem();
+        });
+    }
+
+    function bindEditDeleteToItem() {
+        $('.cbtnEdit').off('click');
+        $('.cbtnDelete').off('click');
+
+        $(".cbtnEdit").click(function(){
+            action = "edit";
+            openEditPanel(this);
+        });
+
+        $(".cbtnDelete").click(function(){
+            if (!confirm("確定要刪除?")) {
+                return;
+            }
+
+            var target = this;
+            var itemName = $(target).parents(".item").find(".itemName").text();
+            websql.delete("name", itemName, function(){
+                deleteItemFromUI(target);
+            });
+        });
+    }
+
+    function openAddPanel() {
+        $("#title").text("新增商品");
+        $("#modal-799945").click();
+    }
+
+    function openEditPanel(target) {
+        objectParent =  $(target).parents(".item");
+
+        var itemName = objectParent.find(".itemName").text();
+        $("#txtItemName").val(itemName);
+
+        var itemPrice = objectParent.find(".itemPrice").text();
+        $("#txtItemPrice").val(itemPrice);
+
+        var itemDescription = objectParent.find(".itemDescription").text();
+         $("#txtItemDescription").val(itemDescription);
+
+        $("#title").text("編輯商品");
+        $("#modal-799945").click();
+    }
+
+    function deleteItemFromUI(target) {
+        $(target).parents(".item").remove();
+    }
+
+    function updateItemOnUI(object, name, price, description) {
+        object.find(".itemName").text(name);
+        object.find(".itemPrice").text(price);
+        object.find(".itemDescription").text(description);
+    }
+
+    function appendItemToUI(name, price, description) {
+        var content = '<div class="row item">'+
+                    '<div class="col-md-2">'+
+                        '<img class="itemPicture" src="140.jpg">'+
+                    '</div>'+
+                    '<div class="col-md-4">'+
+                        '<div>'+
+                            '<span>商品名稱</span>'+
+                            '<span class="itemName">' + name + '</span>'+
+                        '</div>'+
+                        '<div>'+
+                            '<span>商品價格</span>'+
+                            '<span class="itemPrice">' + price + '</span>'+
+                        '</div>'+
+                    '</div>'+
+                    '<div class="col-md-4">'+
+                        '<span class="itemDescription">'+
+                            description+
+                        '</span>'+
+                    '</div>'+
+                    '<div class="col-md-2">'+
+                        '<div class="btn-group btn-group-vertical">'+
+                            '<button class="btn btn-primary cbtnEdit" type="button">'+
+                                '編輯'+
+                            '</button>'+
+                            '<button class="btn btn-default cbtnDelete" type="button">'+
+                                '刪除'+
+                            '</button>'+
+                        '</div>'+
+                    '</div>'+
+                '</div>';
+        $(".col-md-10").append(content);
+    }
+</script>
